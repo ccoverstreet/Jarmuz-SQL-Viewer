@@ -10,9 +10,9 @@ def main():
     else:
         os.system("clear")
 
-    print("Jarmuz SQL Viewer")
+    print("Jarmuż SQL Viewer")
     print("Cale Overstreet, 11/14/2019")
-    print("\nStarting Jarmuz SQL Databases Viewer")
+    print("\nStarting Jarmuż SQL Databases Viewer")
 
     app = QApplication(sys.argv)
     ex = jarmuz.App()

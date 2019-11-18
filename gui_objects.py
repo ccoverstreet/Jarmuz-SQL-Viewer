@@ -8,7 +8,7 @@ import mysql.connector as sql
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title = "Jarmuz SQL Viewer"
+        self.title = "Jarmuż SQL Viewer"
         self.left = 400
         self.top = 300
         self.width = 1280
@@ -45,7 +45,7 @@ class App(QMainWindow):
 
 
     def closeApplication(self):
-        print("\nClosing Jarmuz SQL Viewer")
+        print("\nClosing Jarmuż SQL Viewer")
         print("Have a nice day!")
         qApp.quit()
 
@@ -107,7 +107,7 @@ class SQLTerminal(QWidget):
         self.layout.addWidget(self.terminal_output)
         self.terminal_output.setReadOnly(True); # Setting to read only
         # Setting greeting for terminal
-        self.terminal_output.append("Jarmuz SQL Terminal Interface")
+        self.terminal_output.append("Jarmuż SQL Terminal Interface")
         self.terminal_output.append("Cale Overstreet (2019)")
         self.terminal_output.append("\n")
 
