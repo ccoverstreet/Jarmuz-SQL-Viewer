@@ -1,7 +1,7 @@
 import sys
 import os
 from PyQt5.QtWidgets import QApplication
-import gui_objects as jarmuz 
+import gui_objects as jarmuz
 
 def main():
     # Clearing terminal of text
