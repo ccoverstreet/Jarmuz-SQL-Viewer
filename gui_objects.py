@@ -65,8 +65,8 @@ class App(QMainWindow):
 
         print("Logging In")
 
-    def passLoginToSQLTerminal(self, username, password):
-        self.main_widget.passLoginInfo(username, password)
+    def passLoginToSQLTerminal(self, username, cursor):
+        self.main_widget.passLoginInfo(username, cursor)
 
 
 # Login Dialog
@@ -110,8 +110,20 @@ class LoginDialog(QDialog):
 
     def loginProcess(self):
         print("Login Button Pushed")
-        self.parent.passLoginToSQLTerminal(self.username_entry.text(), self.password_entry.text())
-        self.close()
+        try:
+            self.connection = sql.connect(user=self.username_entry.text(), password=self.password_entry.text())
+            self.connection.autocommit = True
+            cursor = self.connection.cursor()
+            self.parent.passLoginToSQLTerminal(self.username_entry.text(), cursor)
+        except Exception as err:
+            print("Login Error")
+            print(err)
+
+            label = QLabel("Incorrect username or password")
+            label.setStyleSheet("QLabel {color: red}")
+            self.entry_grid.addWidget(label, 2, 0, 1, 2)
+        else:
+            self.close()
 
 
 
@@ -124,18 +136,24 @@ class MainContentWidget(QWidget):
         self.layout.setSpacing(0)
 
         self.top_section = QSplitter(Qt.Horizontal)
-        self.testlabel = QLabel("Will show all databases and tables for selected database")
-        self.testlabel2 = QLabel("Will hold the table output of a SQL command")
-        self.testlabel.setStyleSheet("QLabel {background-color: yellow}")
-        self.testlabel2.setStyleSheet("QLabel {background-color: red}")
-        self.top_section.addWidget(self.testlabel)
+        self.user_databases_table = SQLTableDisplay(self)
+        self.top_section.addWidget(self.user_databases_table)
+        self.tables_table = SQLTableDisplay(self)
+        self.top_section.addWidget(self.tables_table)
         self.sql_table = SQLTableDisplay(self)
         self.top_section.addWidget(self.sql_table)
+
+        self.top_section.setStretchFactor(0, 2)
+        self.top_section.setStretchFactor(1, 2)
+        self.top_section.setStretchFactor(2, 7)
 
         self.vertical_split = QSplitter(Qt.Vertical)
         self.vertical_split.addWidget(self.top_section)
         self.sql_terminal = SQLTerminal(self)
         self.vertical_split.addWidget(self.sql_terminal)
+
+        self.vertical_split.setStretchFactor(0, 6)
+        self.vertical_split.setStretchFactor(1, 1)
 
         self.layout.addWidget(self.vertical_split, 1, 1)
 
@@ -144,8 +162,14 @@ class MainContentWidget(QWidget):
     def updateTable(self, table_data, column_names):
         self.sql_table.updateTable(table_data, column_names)
 
-    def passLoginInfo(self, username, password):
-        self.sql_terminal.loginToDatabase(username, password)
+    def updateUserDatabases(self, database_names):
+        self.user_databases_table.updateTable(database_names, ["Databases"])
+
+    def updateTablesInDatabase(self, table_names):
+        self.tables_table.updateTable(table_names, ["Tables"])
+
+    def passLoginInfo(self, username, cursor):
+        self.sql_terminal.loginToDatabase(username, cursor)
 
 
 # Interface to run SQL commands. Shows previous commands and text output. Table output will be displayed in the table viewer widget
@@ -153,7 +177,7 @@ class SQLTerminal(QWidget):
     terminal_history = []
     terminal_index = 0
 
-    connection = 0
+    cursor = 0
     username = "none"
 
 
@@ -185,11 +209,32 @@ class SQLTerminal(QWidget):
 
         self.setLayout(self.layout)
 
-    def loginToDatabase(self, username, password):
+    def loginToDatabase(self, username, cursor):
         self.username = username
-        self.connection = sql.connect(user=username, password=password)
-        self.connection.autocommit = True
-        self.cursor = self.connection.cursor()
+        self.cursor = cursor
+
+        self.terminal_output.moveCursor(QTextCursor.End)
+        self.terminal_output.insertPlainText("Login")
+        self.terminal_output.append("<html><b>{} [{}]$</b><html> ".format(self.username, self.selected_database))
+
+        self.getUserDatabases()
+
+    def getUserDatabases(self):
+        self.cursor.execute("SHOW DATABASES")
+        self.parent.updateUserDatabases(self.cursor.fetchall())
+
+    def updateTablesInDatabase(self):
+        self.cursor.execute("SHOW TABLES")
+        self.parent.updateTablesInDatabase(self.cursor.fetchall())
+        print("AJSHDAKSJHDJAKSDH")
+
+    def updateQueryTable(self, table_name):
+        self.cursor.execute("SELECT * FROM " + table_name)
+        column_names = self.cursor.column_names
+        table_data = self.cursor.fetchall()
+
+        self.parent.updateTable(table_data, column_names)
+
 
     # Key handling for command history
     def keyPressEvent(self, event):
@@ -228,7 +273,7 @@ class SQLTerminal(QWidget):
             self.parent.updateTable("Hi")
         else:
 
-            if (self.connection == 0):
+            if (self.cursor == 0):
                 self.terminal_output.moveCursor(QTextCursor.End)
                 self.terminal_output.insertPlainText(user_command)
                 self.terminal_output.append("<html><div style='color: red;'>Please login to SQL database using Ctrl+L or clicking on the 'File' menu</div></html>")
@@ -261,11 +306,17 @@ class SQLTerminal(QWidget):
             sql_result = self.cursor.fetchall()
             self.parent.updateTable(sql_result, sql_column_names)
 
-
-
-
         self.terminal_output.append("<html><b>{} [{}]$</b><html> ".format(self.username, self.selected_database))
 
+        if ("use" in sql_command.lower()):
+            self.updateTablesInDatabase()
+        if ("insert " in sql_command.lower() or "delete " in sql_command.lower()):
+            print("Special Command detected")
+            table_name = sql_command.split()[2]
+            self.updateQueryTable(table_name)
+        if ("update " in sql_command.lower()):
+            table_name = sql_command.split()[1]
+            self.updateQueryTable(table_name)
 
 class SQLTableDisplay(QWidget):
     def __init__(self, parent):
@@ -286,17 +337,24 @@ class SQLTableDisplay(QWidget):
         self.setLayout(self.layout)
 
     def updateTable(self, table_data, column_names):
-        self.sql_table.setItem(0, 0, QTableWidgetItem(str(len(table_data))))
-        self.sql_table.setRowCount(len(table_data))
-        self.sql_table.setColumnCount(len(table_data[0]))
+        if (len(table_data) > 0):
+            self.sql_table.setRowCount(len(table_data))
+            self.sql_table.setColumnCount(len(table_data[0]))
 
-        column_labels = []
-        for i in range(0, len(column_names)):
-            column_labels.append(str(column_names[i]))
+            column_labels = []
+            for i in range(0, len(column_names)):
+                column_labels.append(str(column_names[i]))
 
-        self.sql_table.setHorizontalHeaderLabels(column_labels)
+            self.sql_table.setHorizontalHeaderLabels(column_labels)
 
-        for i in range(0, len(table_data)):
-            for j in range(0, len(table_data[0])):
-                self.sql_table.setItem(i, j, QTableWidgetItem(str(table_data[i][j])))
+            for i in range(0, len(table_data)):
+                for j in range(0, len(table_data[0])):
+                    self.sql_table.setItem(i, j, QTableWidgetItem(str(table_data[i][j])))
+        else:
+            self.sql_table.setRowCount(1)
+            self.sql_table.setColumnCount(1)
+
+            self.sql_table.setItem(0, 0, QTableWidgetItem("Nothing"))
         print(table_data)
+
+
