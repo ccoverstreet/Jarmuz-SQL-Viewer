@@ -63,7 +63,6 @@ class App(QMainWindow):
     def loginSQL(self):
         self.login_dialog.show()
 
-        print("Logging In")
 
     def passLoginToSQLTerminal(self, username, cursor):
         self.main_widget.passLoginInfo(username, cursor)
@@ -109,14 +108,12 @@ class LoginDialog(QDialog):
         # self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
     def loginProcess(self):
-        print("Login Button Pushed")
         try:
             self.connection = sql.connect(user=self.username_entry.text(), password=self.password_entry.text())
             self.connection.autocommit = True
             cursor = self.connection.cursor()
             self.parent.passLoginToSQLTerminal(self.username_entry.text(), cursor)
         except Exception as err:
-            print("Login Error")
             print(err)
 
             label = QLabel("Incorrect username or password")
@@ -226,7 +223,6 @@ class SQLTerminal(QWidget):
     def updateTablesInDatabase(self):
         self.cursor.execute("SHOW TABLES")
         self.parent.updateTablesInDatabase(self.cursor.fetchall())
-        print("AJSHDAKSJHDJAKSDH")
 
     def updateQueryTable(self, table_name):
         self.cursor.execute("SELECT * FROM " + table_name)
@@ -311,7 +307,6 @@ class SQLTerminal(QWidget):
         if ("use" in sql_command.lower()):
             self.updateTablesInDatabase()
         if ("insert " in sql_command.lower() or "delete " in sql_command.lower()):
-            print("Special Command detected")
             table_name = sql_command.split()[2]
             self.updateQueryTable(table_name)
         if ("update " in sql_command.lower()):
@@ -355,6 +350,5 @@ class SQLTableDisplay(QWidget):
             self.sql_table.setColumnCount(1)
 
             self.sql_table.setItem(0, 0, QTableWidgetItem("Nothing"))
-        print(table_data)
 
 
