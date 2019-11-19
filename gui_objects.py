@@ -1,5 +1,5 @@
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtWidgets import QMainWindow, QAction, qApp, QGridLayout, QWidget, QLabel, QTextEdit, QSplitter, QLineEdit, QHBoxLayout, QVBoxLayout, QTableWidget,QTableWidgetItem
+from PyQt5.QtWidgets import QMainWindow, QAction, qApp, QGridLayout, QWidget, QLabel, QTextEdit, QSplitter, QLineEdit, QHBoxLayout, QVBoxLayout, QTableWidget,QTableWidgetItem, QDialog, QPushButton
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 
@@ -49,6 +49,10 @@ class App(QMainWindow):
         file_menu.addAction(login_option)
 
 
+        self.login_dialog = LoginDialog(self)
+        self.login_dialog.hide()
+
+
 
 
     def closeApplication(self):
@@ -57,13 +61,58 @@ class App(QMainWindow):
         qApp.quit()
 
     def loginSQL(self):
-        print("Logging In")
-        self.passLoginToSQLTerminal()
+        self.login_dialog.show()
 
-    def passLoginToSQLTerminal(self):
-        self.username = "coverst2"
-        self.password = "Heuristics11!"
-        self.main_widget.passLoginInfo(self.username, self.password)
+        print("Logging In")
+
+    def passLoginToSQLTerminal(self, username, password):
+        self.main_widget.passLoginInfo(username, password)
+
+
+# Login Dialog
+class LoginDialog(QDialog):
+    def __init__(self, parent):
+        self.parent = parent
+        super(LoginDialog, self).__init__()
+        self.layout = QVBoxLayout()
+
+        self.entry_grid = QGridLayout()
+
+        # Grouping for getting username
+        self.username_label = QLabel("Username")
+        self.entry_grid.addWidget(self.username_label, 0, 0)
+        self.username_entry = QLineEdit()
+        self.entry_grid.addWidget(self.username_entry, 0, 1)
+
+
+        # Grouping for getting password
+        self.password_label = QLabel("Password")
+        self.entry_grid.addWidget(self.password_label, 1, 0)
+        self.password_entry = QLineEdit()
+        self.password_entry.setEchoMode(QLineEdit.Password)
+        self.entry_grid.addWidget(self.password_entry, 1, 1)
+
+        self.layout.addLayout(self.entry_grid)
+
+        self.button_layout = QHBoxLayout()
+        self.login_button = QPushButton("Login")
+        self.login_button.clicked.connect(self.loginProcess)
+        self.button_layout.addWidget(self.login_button)
+
+        self.close_button = QPushButton("Cancel")
+        self.button_layout.addWidget(self.close_button)
+        self.layout.addLayout(self.button_layout)
+
+
+        self.setLayout(self.layout)
+
+        # self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+
+    def loginProcess(self):
+        print("Login Button Pushed")
+        self.parent.passLoginToSQLTerminal(self.username_entry.text(), self.password_entry.text())
+        self.close()
+
 
 
 # Main Content Widget
