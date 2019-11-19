@@ -23,23 +23,30 @@ class App(QMainWindow):
         # Create menubar from class function
         self.createMenubar()
 
+        self.main_widget = MainContentWidget(self)
+
         # Setting central widget
-        self.setCentralWidget(MainContentWidget(self))
+        self.setCentralWidget(self.main_widget)
 
         self.show() # Displaying window
 
     def createMenubar(self):
         # Creating menu bar
-        exit_option = QAction(QIcon('exit.png'), '&Exit', self)
+        exit_option = QAction(QIcon('exit.png'), 'Exit Jarmuż', self)
         exit_option.setShortcut("Ctrl+Q")
         exit_option.setStatusTip("Exit Application")
         exit_option.triggered.connect(self.closeApplication)
+
+        login_option = QAction(QIcon('none'), 'Login', self)
+        login_option.setShortcut("Ctrl+L")
+        login_option.triggered.connect(self.loginSQL)
 
         self.statusBar().showMessage("Ready")
 
         menubar = self.menuBar()
         file_menu = menubar.addMenu("&File")
         file_menu.addAction(exit_option)
+        file_menu.addAction(login_option)
 
 
 
@@ -49,6 +56,14 @@ class App(QMainWindow):
         print("Have a nice day!")
         qApp.quit()
 
+    def loginSQL(self):
+        print("Logging In")
+        self.passLoginToSQLTerminal()
+
+    def passLoginToSQLTerminal(self):
+        self.username = "coverst2"
+        self.password = "Heuristics11!"
+        self.main_widget.passLoginInfo(self.username, self.password)
 
 
 # Main Content Widget
@@ -80,20 +95,20 @@ class MainContentWidget(QWidget):
     def updateTable(self, table_data, column_names):
         self.sql_table.updateTable(table_data, column_names)
 
+    def passLoginInfo(self, username, password):
+        self.sql_terminal.loginToDatabase(username, password)
+
 
 # Interface to run SQL commands. Shows previous commands and text output. Table output will be displayed in the table viewer widget
 class SQLTerminal(QWidget):
     terminal_history = []
     terminal_index = 0
 
-    user = "coverst2"
-    password = "Heuristics11!"
-
-    connection = sql.connect(user=user, password=password)
-    cursor = connection.cursor()
-    selected_database = ""
+    connection = 0
+    username = "none"
 
 
+    selected_database = "none"
 
     def __init__(self, parent):
         self.parent = parent
@@ -110,6 +125,7 @@ class SQLTerminal(QWidget):
         self.terminal_output.append("Jarmuż SQL Terminal Interface")
         self.terminal_output.append("Cale Overstreet (2019)")
         self.terminal_output.append("\n")
+        self.terminal_output.append("<html><b>{} [{}]$</b><html> ".format(self.username, self.selected_database))
 
         # Location where user inputs SQL commands
         self.terminal_input = QLineEdit()
@@ -119,6 +135,12 @@ class SQLTerminal(QWidget):
 
 
         self.setLayout(self.layout)
+
+    def loginToDatabase(self, username, password):
+        self.username = username
+        self.connection = sql.connect(user=username, password=password)
+        self.connection.autocommit = True
+        self.cursor = self.connection.cursor()
 
     # Key handling for command history
     def keyPressEvent(self, event):
@@ -139,36 +161,61 @@ class SQLTerminal(QWidget):
 
 
     def handleUserInput(self):
-        user_command = self.terminal_input.text()
+        user_command = self.terminal_input.text().strip()
+        self.terminal_input.setText("")
+
+        if len(self.terminal_history) > 0 and str(user_command) == str(self.terminal_history[-1]): # Don't add command to history if it is the same command
+            None
+        else:
+            self.terminal_history.append(user_command)
+
+        self.terminal_index = len(self.terminal_history) # Setting index to new position
 
         if (user_command == "clear"): # Command to clear SQL Command Window
-            self.terminal_history.append(user_command)
-            self.terminal_index = len(self.terminal_history)
             self.terminal_output.setText("")
         elif (user_command == "exit"): # Command to close app
             qApp.quit()
         elif (self.terminal_input.text() == "test"):
             self.parent.updateTable("Hi")
         else:
-            self.terminal_output.append("<html><b>user [databasename]$</b><html> " + user_command)
-            self.terminal_history.append(user_command)
-            self.terminal_index = len(self.terminal_history)
-            print(self.terminal_history)
+
+            if (self.connection == 0):
+                self.terminal_output.moveCursor(QTextCursor.End)
+                self.terminal_output.insertPlainText(user_command)
+                self.terminal_output.append("<html><div style='color: red;'>Please login to SQL database using Ctrl+L or clicking on the 'File' menu</div></html>")
+                self.terminal_output.append("<html><b>{} [{}]$</b><html> ".format(self.username, self.selected_database))
+                return
 
             # Execute SQL command and catch errors
+            self.executeSQLCommand(user_command)
 
-            if ("USE" in user_command or "use" in user_command):
-                self.selected_database = user_command.split()[1]
-                self.cursor.execute(user_command)
-            elif (self.selected_database != ""):
-                self.cursor.execute(user_command)
-                output_table = self.cursor.fetchall()
-                print(self.cursor.column_names)
-                self.parent.updateTable(output_table, self.cursor.column_names)
-            else:
-                self.terminal_output.append("Please select a database")
 
-        self.terminal_input.setText("")
+    def executeSQLCommand(self, sql_command):
+        self.terminal_output.moveCursor(QTextCursor.End)
+        self.terminal_output.insertPlainText(sql_command)
+
+        try:
+            self.cursor.execute(sql_command)
+        except sql.Error as err:
+            self.terminal_output.append("")
+            self.terminal_output.append("<html><div style='color: red;'>Error Code [{}]</div></html>".format(err.errno))
+            self.terminal_output.append("<html><div style='color: red;'>SQL STATE [{}]</div></html>".format(err.sqlstate))
+            self.terminal_output.append("<html><div style='color: red;'>{}</div></html>".format(err.msg))
+            self.terminal_output.append("")
+        else:
+            if ("use" in sql_command.lower() and len(sql_command.split()) == 2):
+                self.selected_database = sql_command.split()[1]
+
+
+        if self.cursor.with_rows:
+            sql_column_names = self.cursor.column_names
+            sql_result = self.cursor.fetchall()
+            self.parent.updateTable(sql_result, sql_column_names)
+
+
+
+
+        self.terminal_output.append("<html><b>{} [{}]$</b><html> ".format(self.username, self.selected_database))
 
 
 class SQLTableDisplay(QWidget):
@@ -196,7 +243,7 @@ class SQLTableDisplay(QWidget):
 
         column_labels = []
         for i in range(0, len(column_names)):
-            column_labels.append(column_names[i])
+            column_labels.append(str(column_names[i]))
 
         self.sql_table.setHorizontalHeaderLabels(column_labels)
 
