@@ -169,10 +169,10 @@ class MainContentWidget(QWidget):
         self.tables_table.updateTable(table_names, ["Tables"])
 
     def passDatabaseTableIndex(self, clicked_index):
-        self.sql_terminal.updateTablesInDatabaseWithIndex(clicked_index)
+        self.sql_terminal.executeSQLCommand("USE " + clicked_index)
 
     def passTablesInDatabaseIndex(self, clicked_index):
-        self.sql_terminal.updateQueryTableWithIndex(clicked_index)
+        self.sql_terminal.executeSQLCommand("SELECT * FROM " + clicked_index)
 
     def passLoginInfo(self, username, cursor):
         self.sql_terminal.loginToDatabase(username, cursor)
@@ -320,7 +320,7 @@ class SQLTerminal(QWidget):
         if self.cursor.with_rows:
             sql_column_names = self.cursor.column_names
             sql_result = self.cursor.fetchall()
-            self.parent.updateTable(sql_result, sql_column_names)
+            self.parent.updateQueryTable(sql_result, sql_column_names)
 
         self.terminal_output.append("<html><b>{} [{}]$</b><html> ".format(self.username, self.selected_database))
 
