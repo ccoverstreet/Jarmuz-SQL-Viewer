@@ -133,10 +133,13 @@ class MainContentWidget(QWidget):
         self.layout.setSpacing(0)
 
         self.top_section = QSplitter(Qt.Horizontal)
-        self.user_databases_table = SQLTableDisplay(self)
+
+        self.user_databases_table = DatabaseTableDisplay(self)
         self.top_section.addWidget(self.user_databases_table)
-        self.tables_table = SQLTableDisplay(self)
+
+        self.tables_table = TablesInDatabaseDisplay(self)
         self.top_section.addWidget(self.tables_table)
+
         self.sql_table = SQLTableDisplay(self)
         self.top_section.addWidget(self.sql_table)
 
@@ -156,7 +159,7 @@ class MainContentWidget(QWidget):
 
         self.setLayout(self.layout)
 
-    def updateTable(self, table_data, column_names):
+    def updateQueryTable(self, table_data, column_names):
         self.sql_table.updateTable(table_data, column_names)
 
     def updateUserDatabases(self, database_names):
@@ -164,6 +167,12 @@ class MainContentWidget(QWidget):
 
     def updateTablesInDatabase(self, table_names):
         self.tables_table.updateTable(table_names, ["Tables"])
+
+    def passDatabaseTableIndex(self, clicked_index):
+        self.sql_terminal.updateTablesInDatabaseWithIndex(clicked_index)
+
+    def passTablesInDatabaseIndex(self, clicked_index):
+        self.sql_terminal.updateQueryTableWithIndex(clicked_index)
 
     def passLoginInfo(self, username, cursor):
         self.sql_terminal.loginToDatabase(username, cursor)
@@ -214,9 +223,9 @@ class SQLTerminal(QWidget):
         self.terminal_output.insertPlainText("Login")
         self.terminal_output.append("<html><b>{} [{}]$</b><html> ".format(self.username, self.selected_database))
 
-        self.getUserDatabases()
+        self.updateUserDatabases()
 
-    def getUserDatabases(self):
+    def updateUserDatabases(self):
         self.cursor.execute("SHOW DATABASES")
         self.parent.updateUserDatabases(self.cursor.fetchall())
 
@@ -224,13 +233,24 @@ class SQLTerminal(QWidget):
         self.cursor.execute("SHOW TABLES")
         self.parent.updateTablesInDatabase(self.cursor.fetchall())
 
+    def updateTablesInDatabaseWithIndex(self, clicked_index):
+        if (self.cursor == 0):
+            return
+
+        self.cursor.execute("USE " + clicked_index)
+        self.updateTablesInDatabase()
+
     def updateQueryTable(self, table_name):
         self.cursor.execute("SELECT * FROM " + table_name)
         column_names = self.cursor.column_names
         table_data = self.cursor.fetchall()
 
-        self.parent.updateTable(table_data, column_names)
+        self.parent.updateQueryTable(table_data, column_names)
 
+    def updateQueryTableWithIndex(self, clicked_index):
+        if (self.cursor == 0):
+            return
+        self.updateQueryTable(clicked_index)
 
     # Key handling for command history
     def keyPressEvent(self, event):
@@ -350,5 +370,91 @@ class SQLTableDisplay(QWidget):
             self.sql_table.setColumnCount(1)
 
             self.sql_table.setItem(0, 0, QTableWidgetItem("Nothing"))
+
+class DatabaseTableDisplay(QWidget):
+    def __init__(self, parent):
+        self.parent = parent
+        super(DatabaseTableDisplay, self).__init__(parent)
+        self.layout = QVBoxLayout(self)
+
+        self.database_table = QTableWidget()
+        self.database_table.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        self.database_table.setRowCount(1)
+        self.database_table.setColumnCount(1)
+        self.database_table.clicked.connect(self.databaseTableClicked)
+
+        self.database_table.setItem(0, 0, QTableWidgetItem("No Databases"))
+        self.database_table.resizeColumnsToContents()
+        self.layout.addWidget(self.database_table)
+
+        self.setLayout(self.layout)
+
+    def databaseTableClicked(self, clicked_index):
+        self.parent.passDatabaseTableIndex(str(clicked_index.data()))
+
+    def updateTable(self, table_data, column_names):
+        if (len(table_data) > 0):
+            self.database_table.setRowCount(len(table_data))
+            self.database_table.setColumnCount(len(table_data[0]))
+
+            column_labels = []
+            for i in range(0, len(column_names)):
+                column_labels.append(str(column_names[i]))
+
+            self.database_table.setHorizontalHeaderLabels(column_labels)
+
+            for i in range(0, len(table_data)):
+                for j in range(0, len(table_data[0])):
+                    self.database_table.setItem(i, j, QTableWidgetItem(str(table_data[i][j])))
+        else:
+            self.database_table.setRowCount(1)
+            self.database_table.setColumnCount(1)
+
+            self.database_table.setItem(0, 0, QTableWidgetItem("Nothing"))
+
+
+
+class TablesInDatabaseDisplay(QWidget):
+    def __init__(self, parent):
+        self.parent = parent
+
+        super(TablesInDatabaseDisplay, self).__init__(parent)
+        self.layout = QVBoxLayout(self)
+
+        self.tables_table = QTableWidget()
+        self.tables_table.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        self.tables_table.setRowCount(1)
+        self.tables_table.setColumnCount(1)
+        self.tables_table.clicked.connect(self.tableClicked)
+
+        self.tables_table.setItem(0, 0, QTableWidgetItem("No Databases"))
+        self.tables_table.resizeColumnsToContents()
+        self.layout.addWidget(self.tables_table)
+
+        self.setLayout(self.layout)
+
+    def tableClicked(self, clicked_index):
+        self.parent.passTablesInDatabaseIndex(clicked_index.data())
+
+    def updateTable(self, table_data, column_names):
+        if (len(table_data) > 0):
+            self.tables_table.setRowCount(len(table_data))
+            self.tables_table.setColumnCount(len(table_data[0]))
+
+            column_labels = []
+            for i in range(0, len(column_names)):
+                column_labels.append(str(column_names[i]))
+
+            self.tables_table.setHorizontalHeaderLabels(column_labels)
+
+            for i in range(0, len(table_data)):
+                for j in range(0, len(table_data[0])):
+                    self.tables_table.setItem(i, j, QTableWidgetItem(str(table_data[i][j])))
+        else:
+            self.tables_table.setRowCount(1)
+            self.tables_table.setColumnCount(1)
+
+            self.tables_table.setItem(0, 0, QTableWidgetItem("Nothing"))
+
 
 
