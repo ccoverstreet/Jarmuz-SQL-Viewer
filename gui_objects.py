@@ -320,7 +320,7 @@ class SQLTerminal(QWidget):
         if self.cursor.with_rows:
             sql_column_names = self.cursor.column_names
             sql_result = self.cursor.fetchall()
-            self.parent.updateTable(sql_result, sql_column_names)
+            self.parent.updateQueryTable(sql_result, sql_column_names)
 
         self.terminal_output.append("<html><b>{} [{}]$</b><html> ".format(self.username, self.selected_database))
 
